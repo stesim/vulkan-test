@@ -5,7 +5,7 @@ Shader::Shader( Renderer& renderer,
                 const std::vector<char>& code,
                 std::string entryFunc,
                 VkShaderStageFlagBits stage )
-    : VulkanObjectWrapper<VkShaderModule, vkDestroyShaderModule>( renderer.getNativeDeviceHandle() ),
+    : wrapper_type( renderer.getNativeDeviceHandle() ),
       m_vkStage( stage ),
       m_strEntryFunc( entryFunc )
 {

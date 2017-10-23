@@ -8,6 +8,7 @@
 #include "vertex.h"
 #include "commandpool.h"
 #include "commandbuffer.h"
+#include "renderpass.h"
 
 #include <set>
 #include <unordered_set>
@@ -29,6 +30,7 @@ Renderer::Renderer( WindowSurface& surface )
       m_UsedQueueFamilies(),
       m_pWindowSurface( &surface ),
       m_pSwapchain( nullptr ),
+      m_pRenderPass( nullptr ),
       m_pPipeline( nullptr ),
       m_pHostMemoryPool( nullptr ),
       m_pDeviceMemoryPool( nullptr ),
@@ -47,6 +49,7 @@ Renderer::Renderer( WindowSurface& surface )
 		if( !createLogicalDevice() ||
 		    !getQueues() ||
 		    !createSwapchain() ||
+		    !createRenderPass() ||
 		    !createPipeline() ||
 		    !createFramebuffers() ||
 		    !createBuffers() ||
@@ -215,6 +218,8 @@ void Renderer::destroy()
 		m_pPipeline = nullptr;
 	}
 
+	safe_delete( m_pRenderPass );
+
 	m_ShaderCache.destroy();
 
 	cleanupSwapchain();
@@ -330,14 +335,17 @@ void Renderer::recreateSwapchain()
 
 	// recreate pipeline (and thus render pass) if swap chain format has changed
 	// TODO: decouple render pass from pipeline?
-	bool recreatePipeline = ( newSwapchain->getFormat() != m_pSwapchain->getFormat() );
+	bool recreateRenderPass = ( newSwapchain->getFormat() != m_pSwapchain->getFormat() );
 
 	vkDeviceWaitIdle( m_vkDevice );
 
-	if( recreatePipeline )
+	if( recreateRenderPass )
 	{
 		delete m_pPipeline;
 		m_pPipeline = nullptr;
+
+		delete m_pRenderPass;
+		m_pRenderPass = nullptr;
 	}
 
 	cleanupSwapchain();
@@ -346,11 +354,13 @@ void Renderer::recreateSwapchain()
 	{
 		m_pSwapchain = newSwapchain;
 
-		if( recreatePipeline )
+		if( recreateRenderPass )
 		{
-			log_info( "Recreating pipeline due to swap chain format change." );
+			log_info( "Recreating render pass and pipeline due to swap chain format change." );
+			createRenderPass();
 			createPipeline();
 		}
+
 		createFramebuffers();
 		allocateCommandBuffers();
 		recordCommandBuffers();
@@ -492,6 +502,7 @@ bool Renderer::selectPhysicalDevice()
 				else if( properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU )
 				{
 					m_vkPhysicalDevice = device;
+					break;
 				}
 			}
 		}
@@ -604,9 +615,15 @@ bool Renderer::createSwapchain()
 	return m_pSwapchain->isValid();
 }
 
+bool Renderer::createRenderPass()
+{
+	m_pRenderPass = new RenderPass( *this, m_pSwapchain->getFormat() );
+	return m_pRenderPass->isValid();
+}
+
 bool Renderer::createPipeline()
 {
-	m_pPipeline = new Pipeline( *this,
+	m_pPipeline = new Pipeline( *m_pRenderPass,
 	                            {
 	                                &m_ShaderCache.getVertexShader( "vert" ),
 	                                &m_ShaderCache.getFragmentShader( "frag" )
@@ -625,7 +642,7 @@ bool Renderer::createFramebuffers()
 		createInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 		createInfo.pNext           = nullptr;
 		createInfo.flags           = 0;
-		createInfo.renderPass      = m_pPipeline->getRenderPass();
+		createInfo.renderPass      = m_pPipeline->getRenderPass().getNativeHandle();
 		createInfo.attachmentCount = 1;
 		createInfo.pAttachments    = &swapchainViews[ i ];
 		m_pSwapchain->getExtent( createInfo.width, createInfo.height );
@@ -688,7 +705,7 @@ bool Renderer::recordCommandBuffers()
 		if( !commandBuffer.begin( VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT ) )
 			return false;
 
-		commandBuffer.beginRenderPass( m_pPipeline->getRenderPass(),
+		commandBuffer.beginRenderPass( m_pPipeline->getRenderPass().getNativeHandle(),
 		                               m_vkFramebuffers[ i ],
 		                               renderArea,
 		                               { clearColor } );

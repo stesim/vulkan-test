@@ -10,6 +10,9 @@ template<typename handle_type,
 class VulkanObjectWrapper
 {
 public:
+	typedef VulkanObjectWrapper<handle_type, destroy_func> wrapper_type;
+
+public:
 	VulkanObjectWrapper()
 	    : VulkanObjectWrapper( VK_NULL_HANDLE, VK_NULL_HANDLE )
 	{

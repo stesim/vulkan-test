@@ -3,24 +3,24 @@
 #include "swapchain.h"
 #include "vertex.h"
 #include "shader.h"
+#include "renderpass.h"
 
 #include <fstream>
 
 Pipeline::Pipeline()
     : m_vkPipeline( VK_NULL_HANDLE ),
       m_vkLayout( VK_NULL_HANDLE ),
-      m_vkRenderPass( VK_NULL_HANDLE ),
-      m_pRenderer( nullptr )
+      m_pRenderPass( nullptr )
 {
 }
 
-Pipeline::Pipeline( Renderer& renderer, const std::vector<Shader*>& shaders )
+Pipeline::Pipeline( RenderPass& renderPass,
+                    const std::vector<Shader*>& shaders )
     : Pipeline()
 {
-	m_pRenderer = &renderer;
+	m_pRenderPass = &renderPass;
 
-	if( !createRenderPass() ||
-	    !createLayout() ||
+	if( !createLayout() ||
 	    !createPipeline( shaders ) )
 	{
 		destroy();
@@ -34,7 +34,7 @@ Pipeline::~Pipeline()
 
 void Pipeline::destroy()
 {
-	VkDevice device = m_pRenderer->getNativeDeviceHandle();
+	VkDevice device = m_pRenderPass->getRenderer().getNativeDeviceHandle();
 
 	if( m_vkPipeline != VK_NULL_HANDLE )
 	{
@@ -47,52 +47,6 @@ void Pipeline::destroy()
 		vkDestroyPipelineLayout( device, m_vkLayout, nullptr );
 		m_vkLayout = VK_NULL_HANDLE;
 	}
-
-	if( m_vkRenderPass != VK_NULL_HANDLE )
-	{
-		vkDestroyRenderPass( device, m_vkRenderPass, nullptr );
-		m_vkRenderPass = VK_NULL_HANDLE;
-	}
-}
-
-std::vector<char> Pipeline::readFile( const std::string& filename )
-{
-	std::ifstream file( filename, std::ios::binary | std::ios::ate );
-
-	if( !file.is_open() )
-	{
-		log_error( "Cannot open file:" );
-		log_error( filename );
-		return {};
-	}
-
-	size_t fileSize = file.tellg();
-
-	std::vector<char> buffer( fileSize );
-
-	file.seekg( 0 );
-	file.read( buffer.data(), fileSize );
-	file.close();
-
-	return buffer;
-}
-
-VkShaderModule Pipeline::createShaderModule( const std::vector<char>& code )
-{
-	VkShaderModuleCreateInfo createInfo{};
-	createInfo.pNext    = nullptr;
-	createInfo.flags    = 0;
-	createInfo.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	createInfo.codeSize = code.size();
-	createInfo.pCode    = reinterpret_cast<const uint32_t*>( code.data() );
-
-	VkShaderModule shaderModule;
-	VkResult res = vkCreateShaderModule( m_pRenderer->getNativeDeviceHandle(),
-	                                     &createInfo,
-	                                     nullptr,
-	                                     &shaderModule );
-
-	return ( res == VK_SUCCESS ? shaderModule : VK_NULL_HANDLE );
 }
 
 VkPipelineShaderStageCreateInfo Pipeline::createShaderStageCreateInfo( Shader& shader )
@@ -141,28 +95,32 @@ void Pipeline::populateFixedFunctionSetup( FixedFunctionSetup& ffs )
 	ffs.inputAssembly.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	ffs.inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-	uint32_t viewportWidth, viewportHeight;
-	m_pRenderer->getSwapChain().getExtent( viewportWidth, viewportHeight );
-
-	ffs.viewportViewports.resize( 1 );
-	ffs.viewportViewports[ 0 ].x        = 0.0f;
-	ffs.viewportViewports[ 0 ].y        = 0.0f;
-	ffs.viewportViewports[ 0 ].width    = viewportWidth;
-	ffs.viewportViewports[ 0 ].height   = viewportHeight;
-	ffs.viewportViewports[ 0 ].minDepth = 0.0f;
-	ffs.viewportViewports[ 0 ].maxDepth = 1.0f;
-
-	ffs.viewportScissors.resize( 1 );
-	ffs.viewportScissors[ 0 ].offset  = { 0, 0 };
-	ffs.viewportScissors[ 0 ].extent  = { viewportWidth, viewportHeight };
+//	uint32_t viewportWidth, viewportHeight;
+//	m_pRenderer->getSwapChain().getExtent( viewportWidth, viewportHeight );
+//
+//	ffs.viewportViewports.resize( 1 );
+//	ffs.viewportViewports[ 0 ].x        = 0.0f;
+//	ffs.viewportViewports[ 0 ].y        = 0.0f;
+//	ffs.viewportViewports[ 0 ].width    = viewportWidth;
+//	ffs.viewportViewports[ 0 ].height   = viewportHeight;
+//	ffs.viewportViewports[ 0 ].minDepth = 0.0f;
+//	ffs.viewportViewports[ 0 ].maxDepth = 1.0f;
+//
+//	ffs.viewportScissors.resize( 1 );
+//	ffs.viewportScissors[ 0 ].offset  = { 0, 0 };
+//	ffs.viewportScissors[ 0 ].extent  = { viewportWidth, viewportHeight };
 
 	ffs.viewport.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 	ffs.viewport.pNext         = nullptr;
 	ffs.viewport.flags         = 0;
-	ffs.viewport.viewportCount = ffs.viewportViewports.size();
-	ffs.viewport.pViewports    = ffs.viewportViewports.data();
-	ffs.viewport.scissorCount  = ffs.viewportScissors.size();
-	ffs.viewport.pScissors     = ffs.viewportScissors.data();
+//	ffs.viewport.viewportCount = ffs.viewportViewports.size();
+//	ffs.viewport.pViewports    = ffs.viewportViewports.data();
+//	ffs.viewport.scissorCount  = ffs.viewportScissors.size();
+//	ffs.viewport.pScissors     = ffs.viewportScissors.data();
+	ffs.viewport.viewportCount = 1;
+	ffs.viewport.pViewports    = nullptr;
+	ffs.viewport.scissorCount  = 1;
+	ffs.viewport.pScissors     = nullptr;
 
 	ffs.rasterization.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	ffs.rasterization.pNext                   = nullptr;
@@ -214,70 +172,6 @@ void Pipeline::populateFixedFunctionSetup( FixedFunctionSetup& ffs )
 	ffs.colorBlend.blendConstants[ 3 ] = 0.0f;
 }
 
-bool Pipeline::createRenderPass()
-{
-	VkAttachmentDescription colorAttachment{};
-	colorAttachment.flags          = 0;
-	colorAttachment.format         = m_pRenderer->getSwapChain().getFormat();
-	colorAttachment.samples        = VK_SAMPLE_COUNT_1_BIT;
-	colorAttachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	colorAttachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
-	colorAttachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	colorAttachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-	colorAttachment.finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-	VkAttachmentReference colorAttachmentRef{};
-	colorAttachmentRef.attachment = 0;
-	colorAttachmentRef.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	VkSubpassDescription subpass{};
-	subpass.flags                   = 0;
-	subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.inputAttachmentCount    = 0;
-	subpass.pInputAttachments       = nullptr;
-	subpass.colorAttachmentCount    = 1;
-	subpass.pColorAttachments       = &colorAttachmentRef;
-	subpass.pResolveAttachments     = nullptr;
-	subpass.pDepthStencilAttachment = nullptr;
-	subpass.preserveAttachmentCount = 0;
-	subpass.pPreserveAttachments    = nullptr;
-
-	VkSubpassDependency dependency{}; // TODO: not always required,
-	                                  //       introduce a way to define dependencies
-	dependency.srcSubpass      = VK_SUBPASS_EXTERNAL;
-	dependency.dstSubpass      = 0;
-	dependency.srcStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency.srcAccessMask   = 0;
-	dependency.dstStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency.dstAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
-	                             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	dependency.dependencyFlags = 0;
-
-	VkRenderPassCreateInfo createInfo{};
-	createInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	createInfo.pNext           = nullptr;
-	createInfo.flags           = 0;
-	createInfo.attachmentCount = 1;
-	createInfo.pAttachments    = &colorAttachment;
-	createInfo.subpassCount    = 1;
-	createInfo.pSubpasses      = &subpass;
-	createInfo.dependencyCount = 1;
-	createInfo.pDependencies   = &dependency;
-
-	VkResult res = vkCreateRenderPass( m_pRenderer->getNativeDeviceHandle(),
-	                                   &createInfo,
-	                                   nullptr,
-	                                   &m_vkRenderPass );
-
-	if( res != VK_SUCCESS )
-	{
-		log_error( "Cannot create render pass." );
-		return false;
-	}
-	return true;
-}
-
 bool Pipeline::createLayout()
 {
 	VkPipelineLayoutCreateInfo createInfo{};
@@ -289,7 +183,7 @@ bool Pipeline::createLayout()
 	createInfo.pushConstantRangeCount = 0;
 	createInfo.pPushConstantRanges    = 0;
 
-	VkResult res = vkCreatePipelineLayout( m_pRenderer->getNativeDeviceHandle(),
+	VkResult res = vkCreatePipelineLayout( m_pRenderPass->getRenderer().getNativeDeviceHandle(),
 	                                       &createInfo,
 	                                       nullptr,
 	                                       &m_vkLayout );
@@ -344,12 +238,12 @@ bool Pipeline::createPipeline( const std::vector<Shader*>& shaders )
 	createInfo.pColorBlendState    = &fixedFunction.colorBlend;
 	createInfo.pDynamicState       = &dynamicState;
 	createInfo.layout              = m_vkLayout;
-	createInfo.renderPass          = m_vkRenderPass;
+	createInfo.renderPass          = m_pRenderPass->getNativeHandle();
 	createInfo.subpass             = 0;
 	createInfo.basePipelineHandle  = VK_NULL_HANDLE;
 	createInfo.basePipelineIndex   = -1;
 
-	VkResult res = vkCreateGraphicsPipelines( m_pRenderer->getNativeDeviceHandle(),
+	VkResult res = vkCreateGraphicsPipelines( m_pRenderPass->getRenderer().getNativeDeviceHandle(),
 	                                          VK_NULL_HANDLE,
 	                                          1,
 	                                          &createInfo,

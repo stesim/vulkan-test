@@ -9,6 +9,7 @@
 
 class Renderer;
 class Shader;
+class RenderPass;
 
 class Pipeline
 {
@@ -30,44 +31,38 @@ private:
 
 public:
 	Pipeline();
-	Pipeline( Renderer& renderer, const std::vector<Shader*>& shaders );
+	Pipeline( RenderPass& renderPass, const std::vector<Shader*>& shaders );
 	~Pipeline();
 
-	void destroy();
+	void         destroy();
 
-	VkPipeline getNativeHandle()
+	VkPipeline   getNativeHandle()
 	{
 		return m_vkPipeline;
 	}
-	bool       isValid()
+	bool         isValid()
 	{
 		return ( m_vkPipeline != VK_NULL_HANDLE );
 	}
 
-	VkRenderPass getRenderPass()
+	RenderPass&  getRenderPass()
 	{
-		return m_vkRenderPass;
+		return *m_pRenderPass;
 	}
 
 private:
-	static std::vector<char> readFile( const std::string& filename );
-
 	static VkPipelineShaderStageCreateInfo createShaderStageCreateInfo( Shader& shader );
-
-	VkShaderModule createShaderModule( const std::vector<char>& code );
 
 	void populateFixedFunctionSetup( FixedFunctionSetup& ffs );
 
-	bool createRenderPass();
 	bool createLayout();
 	bool createPipeline( const std::vector<Shader*>& shaders );
 
 private:
 	VkPipeline       m_vkPipeline;
 	VkPipelineLayout m_vkLayout;
-	VkRenderPass     m_vkRenderPass;
 
-	Renderer* m_pRenderer;
+	RenderPass* m_pRenderPass;
 };
 
 #endif // PIPELINE_H

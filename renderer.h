@@ -21,6 +21,7 @@ class MemoryPool;
 class Buffer;
 class CommandPool;
 class CommandBuffer;
+class RenderPass;
 
 struct TransformUBO
 {
@@ -141,6 +142,7 @@ private:
 	bool createLogicalDevice();
 	bool getQueues();
 	bool createSwapchain();
+	bool createRenderPass();
 	bool createPipeline();
 	bool createFramebuffers();
 	bool createCommandPool();
@@ -171,6 +173,7 @@ private:
 
 	WindowSurface*               m_pWindowSurface;
 	SwapChain*                   m_pSwapchain;
+	RenderPass*                  m_pRenderPass;
 	Pipeline*                    m_pPipeline;
 	MemoryPool*                  m_pHostMemoryPool;
 	MemoryPool*                  m_pDeviceMemoryPool;
