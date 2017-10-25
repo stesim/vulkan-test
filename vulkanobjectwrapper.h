@@ -34,7 +34,7 @@ public:
 		destroy();
 	}
 
-	virtual void destroy()
+	void destroy()
 	{
 		if( m_vkHandle != VK_NULL_HANDLE )
 		{

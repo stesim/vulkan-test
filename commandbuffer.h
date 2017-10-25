@@ -9,6 +9,7 @@
 class CommandPool;
 class Pipeline;
 class Buffer;
+class RenderPass;
 
 class CommandBuffer
 {
@@ -32,7 +33,7 @@ public:
 	bool end();
 
 	// TODO: replace render pass and framebuffer with wrapper classes
-	void beginRenderPass( VkRenderPass renderPass,
+	void beginRenderPass( RenderPass& renderPass,
 	                      VkFramebuffer frambuffer,
 	                      VkRect2D renderArea,
 	                      std::vector<VkClearValue> clearValues );

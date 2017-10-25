@@ -2,28 +2,17 @@
 #define COMMANDPOOL_H
 
 #include "common.h"
+#include "vulkanobjectwrapper.h"
 
 #include <vulkan/vulkan.h>
 
 class Renderer;
 
-class CommandPool
+class CommandPool : public VulkanObjectWrapper<VkCommandPool, vkDestroyCommandPool>
 {
 public:
-	CommandPool();
+	CommandPool() = default;
 	CommandPool( Renderer& renderer, uint32_t queueFamily );
-	~CommandPool();
-
-	void destroy();
-
-	VkCommandPool  getNativeHandle()
-	{
-		return m_vkCommandPool;
-	}
-	bool           isValid()
-	{
-		return ( m_vkCommandPool != VK_NULL_HANDLE );
-	}
 
 	Renderer&      getRenderer()
 	{
@@ -31,11 +20,6 @@ public:
 	}
 
 private:
-	bool createCommandPool( uint32_t queueFamily );
-
-private:
-	VkCommandPool m_vkCommandPool;
-
 	Renderer*     m_pRenderer;
 };
 

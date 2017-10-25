@@ -9,25 +9,31 @@ class Window;
 
 class WindowSurface
 {
-friend class Window;
-
 public:
     WindowSurface( Window& window );
 	~WindowSurface();
+
+	void destroy();
+
+	VkSurfaceKHR getNativeHandle()
+	{
+		return m_vkHandle;
+	}
+
+	bool         isValid()
+	{
+		return ( m_vkHandle != VK_NULL_HANDLE );
+	}
 
 	Window& getWindow()
 	{
 		return *m_pWindow;
 	}
 
-	VkSurfaceKHR getNativeHandle()
-	{
-		return m_Surface;
-	}
-
 private:
+	VkSurfaceKHR m_vkHandle;
+
 	Window*      m_pWindow;
-	VkSurfaceKHR m_Surface;
 };
 
 #endif // WINDOWSURFACE_H

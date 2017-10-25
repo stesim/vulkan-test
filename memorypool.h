@@ -2,6 +2,7 @@
 #define MEMORYPOOL_H
 
 #include "common.h"
+#include "vulkanobjectwrapper.h"
 
 #include <vulkan/vulkan.h>
 #include <list>
@@ -10,7 +11,7 @@
 class Buffer;
 class Renderer;
 
-class MemoryPool
+class MemoryPool : public VulkanObjectWrapper<VkDeviceMemory, vkFreeMemory>
 {
 public:
 	static constexpr uint32_t INVALID_TYPE = ~(uint32_t)0;
@@ -23,23 +24,11 @@ public:
 	};
 
 public:
-	MemoryPool();
+	MemoryPool() = default;
 	MemoryPool( Renderer& renderer,
 	            uint64_t size,
 	            uint32_t typeFilter,
 	            VkMemoryPropertyFlags properties );
-	~MemoryPool();
-
-	void           destroy();
-
-	VkDeviceMemory getNativeHandle()
-	{
-		return m_vkMemory;
-	}
-	bool           isValid()
-	{
-		return ( m_vkMemory != VK_NULL_HANDLE );
-	}
 
 	Renderer&      getRenderer()
 	{
@@ -59,8 +48,7 @@ private:
 	bool allocateMemory( uint64_t size );
 
 private:
-	VkDeviceMemory m_vkMemory;
-	uint32_t       m_vkType;
+	uint32_t                            m_vkType;
 
 	Renderer*                           m_pRenderer;
 	uint64_t                            m_uSize;

@@ -2,42 +2,20 @@
 #include "buffer.h"
 #include "renderer.h"
 
-MemoryPool::MemoryPool()
-    : m_vkMemory( VK_NULL_HANDLE ),
-      m_vkType( 0 ),
-      m_pRenderer( nullptr ),
-      m_uSize( 0 ),
-      m_Chunks(),
-      m_BufferChunkMap()
-{
-}
-
 MemoryPool::MemoryPool( Renderer& renderer,
                         uint64_t size,
                         uint32_t typeFilter,
                         VkMemoryPropertyFlags properties )
-    : MemoryPool()
+    : wrapper_type( renderer.getNativeDeviceHandle() ),
+      m_pRenderer( &renderer ),
+      m_uSize( 0 ),
+      m_Chunks(),
+      m_BufferChunkMap()
 {
-	m_pRenderer = &renderer;
-
 	if( !determineCompatibleMemoryType( typeFilter, properties ) ||
 	    !allocateMemory( size ) )
 	{
 		destroy();
-	}
-}
-
-MemoryPool::~MemoryPool()
-{
-	destroy();
-}
-
-void MemoryPool::destroy()
-{
-	if( m_vkMemory != VK_NULL_HANDLE )
-	{
-		vkFreeMemory( m_pRenderer->getNativeDeviceHandle(), m_vkMemory, nullptr );
-		m_vkMemory = VK_NULL_HANDLE;
 	}
 }
 
@@ -69,9 +47,9 @@ bool MemoryPool::allocateBufferMemory( Buffer& buffer )
 	if( insertPos != m_Chunks.end() ||
 	    m_uSize - lastChunkEndAligned >= size )
 	{
-		VkResult res = vkBindBufferMemory( m_pRenderer->getNativeDeviceHandle(),
+		VkResult res = vkBindBufferMemory( m_vkDevice,
 		                                   buffer.getNativeHandle(),
-		                                   m_vkMemory,
+		                                   m_vkHandle,
 		                                   lastChunkEndAligned );
 
 		if( res == VK_SUCCESS )
@@ -111,8 +89,8 @@ void* MemoryPool::map( Buffer& buffer, uint64_t offset, uint64_t length )
 #endif
 
 	void* data;
-	VkResult res = vkMapMemory( m_pRenderer->getNativeDeviceHandle(),
-	                            m_vkMemory,
+	VkResult res = vkMapMemory( m_vkDevice,
+	                            m_vkHandle,
 	                            chunk.offset + offset,
 	                            length,
 	                            0,
@@ -129,7 +107,7 @@ void* MemoryPool::map( Buffer& buffer, uint64_t offset, uint64_t length )
 
 void MemoryPool::unmap()
 {
-	vkUnmapMemory( m_pRenderer->getNativeDeviceHandle(), m_vkMemory );
+	vkUnmapMemory( m_vkDevice, m_vkHandle );
 }
 
 bool MemoryPool::determineCompatibleMemoryType( uint32_t filter,
@@ -161,10 +139,10 @@ bool MemoryPool::allocateMemory( uint64_t size )
 	allocInfo.allocationSize  = size;
 	allocInfo.memoryTypeIndex = m_vkType;
 
-	VkResult res = vkAllocateMemory( m_pRenderer->getNativeDeviceHandle(),
+	VkResult res = vkAllocateMemory( m_vkDevice,
 	                                 &allocInfo,
 	                                 nullptr,
-	                                 &m_vkMemory );
+	                                 &m_vkHandle );
 
 	if( res != VK_SUCCESS )
 	{

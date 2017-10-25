@@ -3,6 +3,7 @@
 #include "renderer.h"
 #include "pipeline.h"
 #include "buffer.h"
+#include "renderpass.h"
 
 CommandBuffer::CommandBuffer()
     : m_vkCommandBuffer( VK_NULL_HANDLE ),
@@ -64,7 +65,7 @@ bool CommandBuffer::end()
 	return ( res == VK_SUCCESS );
 }
 
-void CommandBuffer::beginRenderPass( VkRenderPass renderPass,
+void CommandBuffer::beginRenderPass( RenderPass& renderPass,
                                      VkFramebuffer frambuffer,
                                      VkRect2D renderArea,
                                      std::vector<VkClearValue> clearValues )
@@ -72,7 +73,7 @@ void CommandBuffer::beginRenderPass( VkRenderPass renderPass,
 	    VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		renderPassInfo.pNext             = nullptr;
-		renderPassInfo.renderPass        = renderPass;
+		renderPassInfo.renderPass        = renderPass.getNativeHandle();
 		renderPassInfo.framebuffer       = frambuffer;
 		renderPassInfo.renderArea        = renderArea;
 		renderPassInfo.clearValueCount   = clearValues.size();

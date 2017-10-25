@@ -6,34 +6,26 @@
 #include <limits>
 #include <algorithm>
 
-SwapChain::SwapChain()
-    : m_vkSwapchain( VK_NULL_HANDLE ),
-      m_vkFormat(),
-      m_vkExtent(),
-      m_vkImages(),
-      m_vkImageViews(),
-      m_pRenderer( nullptr )
-{
-}
-
 SwapChain::SwapChain( Renderer& renderer )
-    : SwapChain()
+    : SwapChain( renderer, nullptr )
 {
-	m_pRenderer = &renderer;
-
-	if( !createSwapchain( nullptr ) ||
-	    !createImageViews() )
-	{
-		destroy();
-	}
 }
 
 SwapChain::SwapChain( SwapChain& oldSwapchain )
-    : SwapChain()
+    : SwapChain( *oldSwapchain.m_pRenderer, &oldSwapchain )
 {
-	m_pRenderer = oldSwapchain.m_pRenderer;
+}
 
-	if( !createSwapchain( &oldSwapchain ) ||
+SwapChain::SwapChain( Renderer& renderer, SwapChain* oldSwapchain )
+    : wrapper_type( renderer.getNativeDeviceHandle() ),
+      m_vkFormat(),
+      m_vkExtent(),
+      m_vkPresentMode(),
+      m_vkImages(),
+      m_vkImageViews(),
+      m_pRenderer( &renderer )
+{
+	if( !createSwapchain( oldSwapchain ) ||
 	    !createImageViews() )
 	{
 		destroy();
@@ -42,46 +34,12 @@ SwapChain::SwapChain( SwapChain& oldSwapchain )
 
 SwapChain::~SwapChain()
 {
-	destroy();
-}
-
-//SwapChain& SwapChain::operator=( SwapChain&& rhs )
-//{
-//	if( rhs.m_vkSwapchain == VK_NULL_HANDLE )
-//	{
-//		destroy();
-//	}
-//	else
-//	{
-//		m_vkSwapchain = rhs.m_vkSwapchain;
-//		rhs.m_vkSwapchain = VK_NULL_HANDLE;
-//
-//		m_vkFormat = rhs.m_vkFormat;
-//		m_vkExtent = rhs.m_vkExtent;
-//
-//		m_vkImages = std::move( rhs.m_vkImages );
-//
-//		m_pRenderer = rhs.m_pRenderer;
-//	}
-//	return *this;
-//}
-
-void SwapChain::destroy()
-{
-	VkDevice device = m_pRenderer->getNativeDeviceHandle();
-
 	for( auto i = 0; i < m_vkImageViews.size(); ++i )
 	{
 		if( m_vkImageViews[ i ] != VK_NULL_HANDLE )
 		{
-			vkDestroyImageView( device, m_vkImageViews[ i ], nullptr );
+			vkDestroyImageView( m_vkDevice, m_vkImageViews[ i ], nullptr );
 		}
-	}
-
-	if( m_vkSwapchain != VK_NULL_HANDLE )
-	{
-		vkDestroySwapchainKHR( device, m_vkSwapchain, nullptr );
-		m_vkSwapchain = VK_NULL_HANDLE;
 	}
 }
 
@@ -236,17 +194,16 @@ bool SwapChain::createSwapchain( SwapChain* oldSwapchain )
 	createInfo.compositeAlpha   = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // transparent windows anyone?
 	createInfo.presentMode      = m_vkPresentMode;
 	createInfo.clipped          = VK_TRUE;
-	createInfo.oldSwapchain     = ( oldSwapchain != nullptr ? oldSwapchain->m_vkSwapchain
-	                                                        : nullptr );
+	createInfo.oldSwapchain     = ( oldSwapchain != nullptr ? oldSwapchain->m_vkHandle : nullptr );
 
 	VkDevice device = m_pRenderer->getNativeDeviceHandle();
 
-	VkResult res = vkCreateSwapchainKHR( device, &createInfo, nullptr, &m_vkSwapchain );
+	VkResult res = vkCreateSwapchainKHR( device, &createInfo, nullptr, &m_vkHandle );
 	if( res == VK_SUCCESS )
 	{
-		vkGetSwapchainImagesKHR( device, m_vkSwapchain, &numImages, nullptr );
+		vkGetSwapchainImagesKHR( device, m_vkHandle, &numImages, nullptr );
 		m_vkImages.resize( numImages );
-		vkGetSwapchainImagesKHR( device, m_vkSwapchain, &numImages, m_vkImages.data() );
+		vkGetSwapchainImagesKHR( device, m_vkHandle, &numImages, m_vkImages.data() );
 		return true;
 	}
 	else
@@ -279,7 +236,7 @@ bool SwapChain::createImageViews()
 		createInfo.subresourceRange.baseArrayLayer = 0;
 		createInfo.subresourceRange.layerCount     = 1;
 
-		VkResult res = vkCreateImageView( m_pRenderer->getNativeDeviceHandle(),
+		VkResult res = vkCreateImageView( m_vkDevice,
 		                                  &createInfo,
 		                                  nullptr,
 		                                  &m_vkImageViews[ i ] );

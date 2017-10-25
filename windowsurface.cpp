@@ -5,24 +5,31 @@
 #include <GLFW/glfw3.h>
 
 WindowSurface::WindowSurface( Window& window )
-    : m_pWindow( &window ),
-      m_Surface( VK_NULL_HANDLE )
+    : m_vkHandle( VK_NULL_HANDLE ),
+      m_pWindow( &window )
 {
 	VkResult res = glfwCreateWindowSurface( Renderer::getNativeInstanceHandle(),
 	                                        m_pWindow->getNativeHandle(),
 	                                        nullptr,
-	                                        &m_Surface );
+	                                        &m_vkHandle );
 
 	if( res != VK_SUCCESS )
 	{
 		log_error( "Cannot create window surface." );
+		destroy();
 	}
 }
 
 WindowSurface::~WindowSurface()
 {
-	if( m_Surface != VK_NULL_HANDLE )
+	destroy();
+}
+
+void WindowSurface::destroy()
+{
+	if( m_vkHandle != VK_NULL_HANDLE )
 	{
-		vkDestroySurfaceKHR( Renderer::getNativeInstanceHandle(), m_Surface, nullptr );
+		vkDestroySurfaceKHR( Renderer::getNativeInstanceHandle(), m_vkHandle, nullptr );
+		m_vkHandle = VK_NULL_HANDLE;
 	}
 }

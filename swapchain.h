@@ -2,6 +2,7 @@
 #define SWAPCHAIN_H
 
 #include "common.h"
+#include "vulkanobjectwrapper.h"
 
 #include <vulkan/vulkan.h>
 #include <vector>
@@ -9,7 +10,7 @@
 class WindowSurface;
 class Renderer;
 
-class SwapChain
+class SwapChain : public VulkanObjectWrapper<VkSwapchainKHR, vkDestroySwapchainKHR>
 {
 public:
 	struct Capabilities
@@ -20,26 +21,14 @@ public:
 	};
 
 public:
-	SwapChain();
+	SwapChain() = default;
 	SwapChain( Renderer& renderer );
 	SwapChain( SwapChain& oldSwapchain );
-	~SwapChain();
+
+	virtual ~SwapChain();
 
 	static Capabilities queryDeviceCapabilities( VkPhysicalDevice device,
 	                                             VkSurfaceKHR surface );
-
-	//SwapChain& operator=( SwapChain&& rhs );
-
-	void                destroy();
-
-	VkSwapchainKHR      getNativeHandle()
-	{
-		return m_vkSwapchain;
-	}
-	bool                isValid()
-	{
-		return ( m_vkSwapchain != VK_NULL_HANDLE );
-	}
 
 	VkExtent2D          getExtent()
 	{
@@ -61,6 +50,9 @@ public:
 	}
 
 private:
+	SwapChain( Renderer& renderer, SwapChain* oldSwapchain );
+
+private:
 	VkSurfaceFormatKHR  selectSurfaceFormat( const Capabilities& capabilities );
 	VkPresentModeKHR    selectPresentMode( const Capabilities& capabilities );
 	VkExtent2D          selectSurfaceExtent( const Capabilities& capabilities );
@@ -69,7 +61,6 @@ private:
 	bool                createImageViews();
 
 private:
-	VkSwapchainKHR             m_vkSwapchain;
 	VkSurfaceFormatKHR         m_vkFormat;
 	VkExtent2D                 m_vkExtent;
 	VkPresentModeKHR           m_vkPresentMode;

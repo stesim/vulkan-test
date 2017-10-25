@@ -2,16 +2,8 @@
 #include "memorypool.h"
 #include "renderer.h"
 
-Buffer::Buffer()
-    : m_vkBuffer( VK_NULL_HANDLE ),
-      m_pRenderer( nullptr ),
-      m_pMemoryPool( nullptr ),
-      m_uSize( 0 )
-{
-}
-
 Buffer::Buffer( Renderer& renderer, uint64_t size, VkBufferUsageFlags usage )
-    : Buffer( renderer, size, usage, std::vector<uint32_t>() )
+    : Buffer( renderer, size, usage, {} )
 {
 }
 
@@ -19,10 +11,11 @@ Buffer::Buffer( Renderer& renderer,
                 uint64_t size,
                 VkBufferUsageFlags usage,
                 std::vector<uint32_t> queues )
-    : Buffer()
+    : wrapper_type( renderer.getNativeDeviceHandle() ),
+      m_pRenderer( &renderer ),
+      m_pMemoryPool( nullptr ),
+      m_uSize( 0 )
 {
-	m_pRenderer = &renderer;
-
 	if( !createBuffer( size, usage, queues ) )
 	{
 		destroy();
@@ -43,27 +36,14 @@ Buffer::Buffer( MemoryPool& pool,
 
 Buffer::~Buffer()
 {
-	destroy();
-}
-
-void Buffer::destroy()
-{
 	freeMemory();
-
-	if( m_vkBuffer != VK_NULL_HANDLE )
-	{
-		vkDestroyBuffer( m_pRenderer->getNativeDeviceHandle(),
-		                 m_vkBuffer,
-		                 nullptr );
-		m_vkBuffer = VK_NULL_HANDLE;
-	}
 }
 
 void Buffer::getMemoryRequirements( uint64_t* alignment, uint32_t* typeFilter, uint64_t* size )
 {
 	VkMemoryRequirements requirements;
 	vkGetBufferMemoryRequirements( m_pRenderer->getNativeDeviceHandle(),
-	                               m_vkBuffer,
+	                               m_vkHandle,
 	                               &requirements );
 
 	if( alignment  != nullptr ) *alignment  = requirements.alignment;
@@ -76,8 +56,7 @@ bool Buffer::allocateMemoryFromPool( MemoryPool& pool )
 #ifndef NDEBUG
 	if( m_pMemoryPool != nullptr )
 	{
-		log_warning( "Possible memory leak: "
-		             "Allocating memory for buffer with existing allocation." );
+		log_error( "Buffer already has allocated memory." );
 	}
 	if( &pool.getRenderer() != m_pRenderer )
 	{
@@ -135,7 +114,7 @@ bool Buffer::createBuffer( uint64_t size,
 	VkResult res = vkCreateBuffer( m_pRenderer->getNativeDeviceHandle(),
 	                               &createInfo,
 	                               nullptr,
-	                               &m_vkBuffer );
+	                               &m_vkHandle );
 
 	if( res != VK_SUCCESS )
 	{

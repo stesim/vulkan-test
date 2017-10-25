@@ -2,6 +2,7 @@
 #define BUFFER_H
 
 #include "common.h"
+#include "vulkanobjectwrapper.h"
 
 #include <vulkan/vulkan.h>
 #include <vector>
@@ -9,10 +10,10 @@
 class Renderer;
 class MemoryPool;
 
-class Buffer
+class Buffer : public VulkanObjectWrapper<VkBuffer, vkDestroyBuffer>
 {
 public:
-	Buffer();
+	Buffer() = default;
 	Buffer( Renderer& renderer, uint64_t size, VkBufferUsageFlags usage );
 	Buffer( Renderer& renderer,
 	        uint64_t size,
@@ -22,18 +23,8 @@ public:
 	        uint64_t size,
 	        VkBufferUsageFlags usage,
 	        std::vector<uint32_t> queues );
-	~Buffer();
 
-	void     destroy();
-
-	VkBuffer getNativeHandle()
-	{
-		return m_vkBuffer;
-	}
-	bool     isValid()
-	{
-		return ( m_vkBuffer != VK_NULL_HANDLE );
-	}
+	virtual ~Buffer();
 
 	uint64_t getSize()
 	{
@@ -58,8 +49,6 @@ private:
 	                       const std::vector<uint32_t>& queues );
 
 private:
-	VkBuffer  m_vkBuffer;
-
 	Renderer*   m_pRenderer;
 	MemoryPool* m_pMemoryPool;
 	uint64_t    m_uSize;

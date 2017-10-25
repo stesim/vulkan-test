@@ -177,29 +177,11 @@ Renderer::QueueFamilies Renderer::queryQueueFamilies( VkPhysicalDevice device, V
 
 void Renderer::destroy()
 {
-	if( m_pGeometryBuffer != nullptr )
-	{
-		delete m_pGeometryBuffer;
-		m_pGeometryBuffer = nullptr;
-	}
+	safe_delete( m_pGeometryBuffer );
+	safe_delete( m_pStagingBuffer );
 
-	if( m_pStagingBuffer != nullptr )
-	{
-		delete m_pStagingBuffer;
-		m_pStagingBuffer = nullptr;
-	}
-
-	if( m_pDeviceMemoryPool != nullptr )
-	{
-		delete m_pDeviceMemoryPool;
-		m_pDeviceMemoryPool = nullptr;
-	}
-
-	if( m_pHostMemoryPool != nullptr )
-	{
-		delete m_pHostMemoryPool;
-		m_pHostMemoryPool = nullptr;
-	}
+	safe_delete( m_pDeviceMemoryPool );
+	safe_delete( m_pHostMemoryPool );
 
 	if( m_vkImageAvailableSemaphore != VK_NULL_HANDLE )
 	{
@@ -212,29 +194,15 @@ void Renderer::destroy()
 		m_vkRenderFinishedSemaphore = VK_NULL_HANDLE;
 	}
 
-	if( m_pPipeline != nullptr )
-	{
-		delete m_pPipeline;
-		m_pPipeline = nullptr;
-	}
-
+	safe_delete( m_pPipeline );
 	safe_delete( m_pRenderPass );
 
 	m_ShaderCache.destroy();
 
 	cleanupSwapchain();
 
-	if( m_pTransferCommandBuffer != nullptr )
-	{
-		delete m_pTransferCommandBuffer;
-		m_pTransferCommandBuffer = nullptr;
-	}
-
-	if( m_pCommandPool != nullptr )
-	{
-		delete m_pCommandPool;
-		m_pCommandPool = nullptr;
-	}
+	safe_delete( m_pTransferCommandBuffer );
+	safe_delete( m_pCommandPool );
 
 	if( m_vkDevice != VK_NULL_HANDLE )
 	{
@@ -333,19 +301,14 @@ void Renderer::recreateSwapchain()
 {
 	SwapChain* newSwapchain = new SwapChain( *m_pSwapchain );
 
-	// recreate pipeline (and thus render pass) if swap chain format has changed
-	// TODO: decouple render pass from pipeline?
 	bool recreateRenderPass = ( newSwapchain->getFormat() != m_pSwapchain->getFormat() );
 
 	vkDeviceWaitIdle( m_vkDevice );
 
 	if( recreateRenderPass )
 	{
-		delete m_pPipeline;
-		m_pPipeline = nullptr;
-
-		delete m_pRenderPass;
-		m_pRenderPass = nullptr;
+		safe_delete( m_pPipeline );
+		safe_delete( m_pRenderPass );
 	}
 
 	cleanupSwapchain();
@@ -705,7 +668,7 @@ bool Renderer::recordCommandBuffers()
 		if( !commandBuffer.begin( VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT ) )
 			return false;
 
-		commandBuffer.beginRenderPass( m_pPipeline->getRenderPass().getNativeHandle(),
+		commandBuffer.beginRenderPass( *m_pRenderPass,
 		                               m_vkFramebuffers[ i ],
 		                               renderArea,
 		                               { clearColor } );
@@ -893,9 +856,5 @@ void Renderer::cleanupSwapchain()
 	}
 	m_CommandBuffers.clear();
 
-	if( m_pSwapchain != nullptr )
-	{
-		delete m_pSwapchain;
-		m_pSwapchain = nullptr;
-	}
+	safe_delete( m_pSwapchain );
 }
