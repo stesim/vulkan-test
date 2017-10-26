@@ -9,6 +9,9 @@
 #include "commandpool.h"
 #include "commandbuffer.h"
 #include "renderpass.h"
+#include "descriptorsetlayout.h"
+#include "descriptorpool.h"
+#include "descriptorset.h"
 
 #include <set>
 #include <unordered_set>
@@ -30,14 +33,19 @@ Renderer::Renderer( WindowSurface& surface )
       m_UsedQueueFamilies(),
       m_pWindowSurface( &surface ),
       m_pSwapchain( nullptr ),
+      m_pDescriptorSetLayout( nullptr ),
+      m_pDescriptorPool( nullptr ),
+      m_pDescriptorSet( nullptr ),
       m_pRenderPass( nullptr ),
       m_pPipeline( nullptr ),
       m_pHostMemoryPool( nullptr ),
       m_pDeviceMemoryPool( nullptr ),
       m_pGeometryBuffer( nullptr ),
       m_pStagingBuffer( nullptr ),
+      m_pUniformBuffer( nullptr ),
       m_pCommandPool( nullptr ),
-      m_CommandBuffers()
+      m_CommandBuffers(),
+      m_TimerStart( std::chrono::high_resolution_clock::now() )
 {
 	if( selectPhysicalDevice() )
 	{
@@ -49,10 +57,11 @@ Renderer::Renderer( WindowSurface& surface )
 		if( !createLogicalDevice() ||
 		    !getQueues() ||
 		    !createSwapchain() ||
+		    !createBuffers() ||
+		    !createDescriptors() ||
 		    !createRenderPass() ||
 		    !createPipeline() ||
 		    !createFramebuffers() ||
-		    !createBuffers() ||
 		    !createCommandPool() ||
 		    !allocateCommandBuffers() ||
 		    !recordCommandBuffers() ||
@@ -177,12 +186,6 @@ Renderer::QueueFamilies Renderer::queryQueueFamilies( VkPhysicalDevice device, V
 
 void Renderer::destroy()
 {
-	safe_delete( m_pGeometryBuffer );
-	safe_delete( m_pStagingBuffer );
-
-	safe_delete( m_pDeviceMemoryPool );
-	safe_delete( m_pHostMemoryPool );
-
 	if( m_vkImageAvailableSemaphore != VK_NULL_HANDLE )
 	{
 		vkDestroySemaphore( m_vkDevice, m_vkImageAvailableSemaphore, nullptr );
@@ -197,9 +200,20 @@ void Renderer::destroy()
 	safe_delete( m_pPipeline );
 	safe_delete( m_pRenderPass );
 
+	safe_delete( m_pUniformBuffer );
+	safe_delete( m_pGeometryBuffer );
+	safe_delete( m_pStagingBuffer );
+
+	safe_delete( m_pDeviceMemoryPool );
+	safe_delete( m_pHostMemoryPool );
+
 	m_ShaderCache.destroy();
 
 	cleanupSwapchain();
+
+	safe_delete( m_pDescriptorSet );
+	safe_delete( m_pDescriptorPool );
+	safe_delete( m_pDescriptorSetLayout );
 
 	safe_delete( m_pTransferCommandBuffer );
 	safe_delete( m_pCommandPool );
@@ -290,6 +304,36 @@ void Renderer::presentFrame( uint32_t imageIndex )
 		log_info( "Recreating out-of-date or suboptimal swap chain." );
 		recreateSwapchain();
 	}
+}
+
+void Renderer::updateUniforms()
+{
+	float t = std::chrono::duration_cast<std::chrono::milliseconds>(
+	              std::chrono::high_resolution_clock::now() - m_TimerStart ).count() / 1000.0f;
+
+	TransformUBO ubo{};
+	ubo.model = glm::rotate( glm::mat4( 1.0f ),
+	                         t * 0.5f * glm::pi<float>(),
+	                         glm::vec3( 0.0f, 0.0f, 1.0f ) );
+
+	ubo.view = glm::lookAt( glm::vec3( 2.0f, 2.0f, 2.0f ),
+	                        glm::vec3( 0.0f, 0.0f, 0.0f ),
+	                        glm::vec3( 0.0f, 0.0f, 1.0f ) );
+
+	VkExtent2D size = m_pSwapchain->getExtent();
+	ubo.proj = glm::perspective( 0.25f * glm::pi<float>(),
+	                             (float)size.width / size.height,
+	                             0.1f,
+	                             10.0f );
+	ubo.proj[ 1 ][ 1 ] *= -1;
+
+	//ubo.model = glm::mat4( 1.0f );
+	//ubo.view = glm::mat4( 1.0f );
+	//ubo.proj = glm::mat4( 1.0f );
+
+	void* data = m_pUniformBuffer->map();
+	memcpy( data, &ubo, sizeof( TransformUBO ) );
+	m_pUniformBuffer->unmap();
 }
 
 void Renderer::waitForIdle()
@@ -578,6 +622,39 @@ bool Renderer::createSwapchain()
 	return m_pSwapchain->isValid();
 }
 
+bool Renderer::createDescriptors()
+{
+	DescriptorSetLayout::Composer layoutComposer = DescriptorSetLayout::compose()
+	                                               .stage( VK_SHADER_STAGE_VERTEX_BIT )
+	                                               .uniformBuffer();
+
+	m_pDescriptorSetLayout = new DescriptorSetLayout( *this, layoutComposer );
+
+	if( !m_pDescriptorSetLayout->isValid() )
+		return false;
+
+	m_pDescriptorPool = new DescriptorPool( *this,
+	                                        {
+	                                            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 }
+	                                        },
+	                                        1 );
+
+	if( !m_pDescriptorPool->isValid() )
+		return false;
+
+	m_pDescriptorSet = new DescriptorSet( *m_pDescriptorPool, { m_pDescriptorSetLayout } );
+
+	if( !m_pDescriptorSet->isValid() )
+		return false;
+
+	DescriptorSet::Writer setWriter( *m_pDescriptorSet );
+	setWriter.uniformBuffer( 0, *m_pUniformBuffer, 0, sizeof( TransformUBO ) );
+
+	m_pDescriptorSet->update( setWriter );
+
+	return true;
+}
+
 bool Renderer::createRenderPass()
 {
 	m_pRenderPass = new RenderPass( *this, m_pSwapchain->getFormat() );
@@ -590,6 +667,9 @@ bool Renderer::createPipeline()
 	                            {
 	                                &m_ShaderCache.getVertexShader( "vert" ),
 	                                &m_ShaderCache.getFragmentShader( "frag" )
+	                            },
+	                            {
+	                                m_pDescriptorSetLayout
 	                            } );
 	return m_pPipeline->isValid();
 }
@@ -674,6 +754,10 @@ bool Renderer::recordCommandBuffers()
 		                               { clearColor } );
 
 		commandBuffer.bindPipeline( VK_PIPELINE_BIND_POINT_GRAPHICS, *m_pPipeline );
+
+		commandBuffer.bindDescriptorSet( *m_pDescriptorSet,
+		                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
+		                                 *m_pPipeline );
 
 		commandBuffer.bindVertexBuffers( 0, { m_pGeometryBuffer }, { 0 } );
 		commandBuffer.bindIndexBuffer( *m_pGeometryBuffer, 4 * sizeof( Vertex ), VK_INDEX_TYPE_UINT32 ); // TODO: replace fixed offset !!!!!!!
@@ -806,11 +890,18 @@ bool Renderer::createBuffers()
 	                                      typeFilter,
 	                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
 
-	if( !m_pHostMemoryPool->isValid() ||
-	    ! m_pGeometryBuffer->allocateMemoryFromPool( *m_pDeviceMemoryPool ) )
+	if( !m_pDeviceMemoryPool->isValid() ||
+	    !m_pGeometryBuffer->allocateMemoryFromPool( *m_pDeviceMemoryPool ) )
 	{
 		return false;
 	}
+
+	m_pUniformBuffer = new Buffer( *m_pHostMemoryPool,
+	                               sizeof( TransformUBO ),
+	                               VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT );
+
+	if( !m_pUniformBuffer->isValid() )
+		return false;
 
 	return true;
 }

@@ -4,6 +4,7 @@
 #include "vertex.h"
 #include "shader.h"
 #include "renderpass.h"
+#include "descriptorsetlayout.h"
 
 #include <fstream>
 
@@ -15,12 +16,13 @@ Pipeline::Pipeline()
 }
 
 Pipeline::Pipeline( RenderPass& renderPass,
-                    const std::vector<Shader*>& shaders )
+                    const std::vector<Shader*>& shaders,
+                    const std::vector<DescriptorSetLayout*>& descriptorLayouts )
     : Pipeline()
 {
 	m_pRenderPass = &renderPass;
 
-	if( !createLayout() ||
+	if( !createLayout( descriptorLayouts ) ||
 	    !createPipeline( shaders ) )
 	{
 		destroy();
@@ -130,7 +132,7 @@ void Pipeline::populateFixedFunctionSetup( FixedFunctionSetup& ffs )
 	ffs.rasterization.polygonMode             = VK_POLYGON_MODE_FILL;
 	ffs.rasterization.lineWidth               = 1.0f;
 	ffs.rasterization.cullMode                = VK_CULL_MODE_BACK_BIT;
-	ffs.rasterization.frontFace               = VK_FRONT_FACE_CLOCKWISE;
+	ffs.rasterization.frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	ffs.rasterization.depthBiasEnable         = VK_FALSE;
 	ffs.rasterization.depthBiasConstantFactor = 0.0f;
 	ffs.rasterization.depthBiasClamp          = 0.0f;
@@ -172,14 +174,20 @@ void Pipeline::populateFixedFunctionSetup( FixedFunctionSetup& ffs )
 	ffs.colorBlend.blendConstants[ 3 ] = 0.0f;
 }
 
-bool Pipeline::createLayout()
+bool Pipeline::createLayout( const std::vector<DescriptorSetLayout*>& descriptorLayouts )
 {
+	std::vector<VkDescriptorSetLayout> layouts( descriptorLayouts.size() );
+	for( auto i = 0; i < descriptorLayouts.size(); ++i )
+	{
+		layouts[ i ] = descriptorLayouts[ i ]->getNativeHandle();
+	}
+
 	VkPipelineLayoutCreateInfo createInfo{};
 	createInfo.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	createInfo.pNext                  = nullptr;
 	createInfo.flags                  = 0;
-	createInfo.setLayoutCount         = 0;
-	createInfo.pSetLayouts            = nullptr;
+	createInfo.setLayoutCount         = layouts.size();
+	createInfo.pSetLayouts            = ( layouts.empty() ? nullptr : layouts.data() );
 	createInfo.pushConstantRangeCount = 0;
 	createInfo.pPushConstantRanges    = 0;
 

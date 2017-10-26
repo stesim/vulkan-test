@@ -21,6 +21,9 @@ public:
 	        std::vector<uint32_t> queues );
 	Buffer( MemoryPool& pool,
 	        uint64_t size,
+	        VkBufferUsageFlags usage );
+	Buffer( MemoryPool& pool,
+	        uint64_t size,
 	        VkBufferUsageFlags usage,
 	        std::vector<uint32_t> queues );
 

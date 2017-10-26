@@ -10,6 +10,7 @@ class CommandPool;
 class Pipeline;
 class Buffer;
 class RenderPass;
+class DescriptorSet;
 
 class CommandBuffer
 {
@@ -32,7 +33,7 @@ public:
 	bool begin( VkCommandBufferUsageFlags usage );
 	bool end();
 
-	// TODO: replace render pass and framebuffer with wrapper classes
+	// TODO: replace framebuffer with wrapper classes
 	void beginRenderPass( RenderPass& renderPass,
 	                      VkFramebuffer frambuffer,
 	                      VkRect2D renderArea,
@@ -44,6 +45,9 @@ public:
 	                        std::vector<Buffer*> buffers,
 	                        std::vector<uint64_t> offsets );
 	void bindIndexBuffer( Buffer& buffer, uint64_t offset, VkIndexType indexType );
+	void bindDescriptorSet( DescriptorSet& set,
+	                        VkPipelineBindPoint bindPoint,
+	                        Pipeline& pipeline );
 
 	void setViewports( uint32_t firstIndex, std::vector<VkViewport> viewports );
 	void setScissors( uint32_t firstIndex, std::vector<VkRect2D> scissors );

@@ -21,6 +21,8 @@ void renderCallback( Window& window, void* userData )
 	}
 
 	renderer.waitForIdle(); // TODO: remove?
+
+	renderer.updateUniforms();
 }
 
 void resizeCallback( Window& window, uint32_t width, uint32_t height, void* userData )

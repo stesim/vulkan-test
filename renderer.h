@@ -13,6 +13,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <vector>
+#include <chrono>
 
 class WindowSurface;
 class SwapChain;
@@ -22,6 +23,9 @@ class Buffer;
 class CommandPool;
 class CommandBuffer;
 class RenderPass;
+class DescriptorSetLayout;
+class DescriptorPool;
+class DescriptorSet;
 
 struct TransformUBO
 {
@@ -118,7 +122,10 @@ public:
 	uint32_t renderFrame();
 	void     presentFrame( uint32_t imageIndex );
 
+	void     updateUniforms();
+
 	void     waitForIdle();
+
 	void     recreateSwapchain();
 
 private:
@@ -142,6 +149,7 @@ private:
 	bool createLogicalDevice();
 	bool getQueues();
 	bool createSwapchain();
+	bool createDescriptors();
 	bool createRenderPass();
 	bool createPipeline();
 	bool createFramebuffers();
@@ -173,15 +181,21 @@ private:
 
 	WindowSurface*               m_pWindowSurface;
 	SwapChain*                   m_pSwapchain;
+	DescriptorSetLayout*         m_pDescriptorSetLayout;
+	DescriptorPool*              m_pDescriptorPool;
+	DescriptorSet*               m_pDescriptorSet;
 	RenderPass*                  m_pRenderPass;
 	Pipeline*                    m_pPipeline;
 	MemoryPool*                  m_pHostMemoryPool;
 	MemoryPool*                  m_pDeviceMemoryPool;
 	Buffer*                      m_pGeometryBuffer;
 	Buffer*                      m_pStagingBuffer;
+	Buffer*                      m_pUniformBuffer;
 	CommandPool*                 m_pCommandPool;
 	std::vector<CommandBuffer*>  m_CommandBuffers;
 	CommandBuffer*               m_pTransferCommandBuffer;
+
+	std::chrono::high_resolution_clock::time_point m_TimerStart;
 };
 
 #endif // RENDERER_H

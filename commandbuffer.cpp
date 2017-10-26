@@ -4,6 +4,7 @@
 #include "pipeline.h"
 #include "buffer.h"
 #include "renderpass.h"
+#include "descriptorset.h"
 
 CommandBuffer::CommandBuffer()
     : m_vkCommandBuffer( VK_NULL_HANDLE ),
@@ -115,6 +116,22 @@ void CommandBuffer::bindVertexBuffers( uint32_t firstIndex,
 void CommandBuffer::bindIndexBuffer( Buffer& buffer, uint64_t offset, VkIndexType indexType )
 {
 	vkCmdBindIndexBuffer( m_vkCommandBuffer, buffer.getNativeHandle(), offset, indexType );
+}
+
+void CommandBuffer::bindDescriptorSet( DescriptorSet& set,
+                                       VkPipelineBindPoint bindPoint,
+                                       Pipeline& pipeline )
+{
+	VkDescriptorSet setHandle = set.getNativeHandle();
+
+	vkCmdBindDescriptorSets( m_vkCommandBuffer,
+	                         bindPoint,
+	                         pipeline.getLayout(),
+	                         0,
+	                         1,
+	                         &setHandle,
+	                         0,
+	                         nullptr );
 }
 
 void CommandBuffer::setViewports( uint32_t firstIndex, std::vector<VkViewport> viewports )

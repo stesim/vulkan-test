@@ -24,6 +24,13 @@ Buffer::Buffer( Renderer& renderer,
 
 Buffer::Buffer( MemoryPool& pool,
                 uint64_t size,
+                VkBufferUsageFlags usage )
+    : Buffer( pool, size, usage, {} )
+{
+}
+
+Buffer::Buffer( MemoryPool& pool,
+                uint64_t size,
                 VkBufferUsageFlags usage,
                 std::vector<uint32_t> queues )
     : Buffer( pool.getRenderer(), size, usage, queues )
@@ -77,6 +84,13 @@ bool Buffer::allocateMemoryFromPool( MemoryPool& pool )
 
 void Buffer::freeMemory()
 {
+#ifndef NDEBUG
+	if( m_pMemoryPool == nullptr )
+	{
+		log_error( "Attempting to free unallocated buffer memory." );
+	}
+#endif
+
 	m_pMemoryPool->freeBufferMemory( *this );
 	m_pMemoryPool = nullptr;
 }

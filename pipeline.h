@@ -10,6 +10,7 @@
 class Renderer;
 class Shader;
 class RenderPass;
+class DescriptorSetLayout;
 
 class Pipeline
 {
@@ -31,7 +32,9 @@ private:
 
 public:
 	Pipeline();
-	Pipeline( RenderPass& renderPass, const std::vector<Shader*>& shaders );
+	Pipeline( RenderPass& renderPass,
+	          const std::vector<Shader*>& shaders,
+	          const std::vector<DescriptorSetLayout*>& descriptorLayouts );
 	~Pipeline();
 
 	void         destroy();
@@ -50,12 +53,17 @@ public:
 		return *m_pRenderPass;
 	}
 
+	VkPipelineLayout getLayout()
+	{
+		return m_vkLayout;
+	}
+
 private:
 	static VkPipelineShaderStageCreateInfo createShaderStageCreateInfo( Shader& shader );
 
 	void populateFixedFunctionSetup( FixedFunctionSetup& ffs );
 
-	bool createLayout();
+	bool createLayout( const std::vector<DescriptorSetLayout*>& descriptorLayouts );
 	bool createPipeline( const std::vector<Shader*>& shaders );
 
 private:
